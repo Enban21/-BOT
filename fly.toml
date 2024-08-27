@@ -1,0 +1,26 @@
+# fly.toml app configuration file generated for bengiken-bot on 2024-08-26T18:45:21+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'bengiken-bot'
+primary_region = 'nrt'
+
+[build]
+
+[[mounts]]
+  source = 'dictionary_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

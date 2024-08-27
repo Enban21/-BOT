@@ -1,0 +1,8 @@
+*.pyc
+__pycache__/
+requirements.txt
+.env
+0610gaku
+0610gaku-cert.pub
+Dockerfile
+fly.tmol
