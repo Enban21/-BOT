@@ -5,4 +5,4 @@ requirements.txt
 0610gaku
 0610gaku-cert.pub
 Dockerfile
-fly.tmol
+fly.toml
