@@ -3,8 +3,11 @@ import os
 import sqlite3
 import datetime
 import logging
+import requests
+import hashlib
 from discord import app_commands
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 # 環境変数のロード
 load_dotenv()
@@ -57,6 +60,26 @@ def log_database_contents():
         logger.error(f"Error occurred while reading the database: {e}")
     finally:
         conn.close()
+
+def download_sound_file(url, guild_id):
+    response = requests.get(url)
+    if response.status_code == 200:
+        # URLからファイル名を安全に生成
+        parsed_url = urlparse(url)
+        file_name = hashlib.sha256(url.encode('utf-8')).hexdigest()
+        extension = os.path.splitext(parsed_url.path)[-1]
+        sound_file_name = f"{file_name}{extension}"
+        save_path = f"/data/sounds/{guild_id}/{sound_file_name}"
+        
+        # ディレクトリが存在しない場合は作成
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        with open(save_path, 'wb') as f:
+            f.write(response.content)
+        
+        return save_path
+    else:
+        raise Exception(f"Failed to download file from URL: {url}, Status Code: {response.status_code}")
 
 class MyClient(discord.Client):
     def __init__(self, intents):
@@ -146,11 +169,11 @@ async def help_command(interaction: discord.Interaction):
 async def help_command(interaction: discord.Interaction):
     help_message = (
         "**コマンド一覧**\n\n"
-        "/list:コマンド一覧を表示します。\n/join:コマンド実行者のいるVCに参加します。\n/disc:VCから退出します。\n/event:簡易的なイベントを作成します。（Discord標準のイベント機能ではありません。）\n/q:アンケートを作成します。選択肢は2個以上21個未満です。\n/se_add:効果音を登録します。\n/se_del:登録された効果音を削除します。\n/se_list:登録された効果音の一覧を表示します。"
+        "/list:コマンド一覧を表示します。\n/join:コマンド実行者のいるVCに参加します。\n/disc:VCから退出します。\n/event:簡易的なイベントを作成します。（Discord標準のイベント機能ではありません。）\n/q:アンケートを作成します。選択肢は2個以上20個未満です。\n/se_add:効果音を登録します。\n/se_del:登録された効果音を削除します。\n/se_list:登録された効果音の一覧を表示します。"
         "詳細については [こちら](https://disk22.wixsite.com/bengiken/about-5) をご覧ください。"
     )
     await interaction.response.send_message(help_message)
-    
+
 # イベント作成コマンド
 @client.tree.command(name="event", description="イベントを作成します。")
 async def create_event(
@@ -227,10 +250,14 @@ async def disc(interaction: discord.Interaction):
 
 # 効果音登録コマンド
 @client.tree.command(name="se_add", description="効果音を登録します")
-async def se_add(interaction: discord.Interaction, name: str, file: str):
+async def se_add(interaction: discord.Interaction, name: str, url: str):
     guild_id = interaction.guild.id
-    execute_db_query('INSERT OR REPLACE INTO sound_effects (guild_id, name, file) VALUES (?, ?, ?)', (guild_id, name, file), commit=True)
-    await interaction.response.send_message(f"効果音 `{name}` を登録しました。")
+    try:
+        file_path = download_sound_file(url, guild_id)
+        execute_db_query('INSERT OR REPLACE INTO sound_effects (guild_id, name, file) VALUES (?, ?, ?)', (guild_id, name, file_path), commit=True)
+        await interaction.response.send_message(f"効果音 `{name}` を登録しました。")
+    except Exception as e:
+        await interaction.response.send_message(f"効果音 `{name}` の登録に失敗しました: {str(e)}")
 
 # 効果音削除コマンド
 @client.tree.command(name="se_del", description="効果音を削除します")
